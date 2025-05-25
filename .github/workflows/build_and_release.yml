@@ -1,0 +1,39 @@
+name: Build and Release EXE
+
+on:
+  push:
+    tags:
+      - 'v*.*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yt-dlp pyinstaller matplotlib seaborn pillow
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --icon=app_icon.ico --name MediaToolkitApp MediaToolkitApp.py
+
+      - name: Zip the executable (avoid Defender false positive)
+        run: |
+          Compress-Archive -Path dist/MediaToolkitApp.exe -DestinationPath MediaToolkitApp_v${{ github.ref_name }}.zip
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: MediaToolkitApp_v${{ github.ref_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
