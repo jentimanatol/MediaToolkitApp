@@ -80,7 +80,7 @@ def format_views(views):
 class MediaToolkitApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Media Toolkit App")
+        self.root.title("Media Toolkit App by AJ")
         self.root.geometry("900x700")
         self.download_path = str(Path.home() / "Downloads")
         self.video_info = None
