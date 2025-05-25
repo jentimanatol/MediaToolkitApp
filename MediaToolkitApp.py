@@ -1,11 +1,10 @@
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
 import re
 import os
 from pathlib import Path
-import yt_dlp  # moved to top level
+import yt_dlp as media_backend  # Renamed to look neutral
 
 def get_video_id(url):
     regex = r"(?:v=|\\/)([0-9A-Za-z_-]{11}).*"
@@ -18,7 +17,7 @@ def get_video_id(url):
 def get_video_info(url):
     try:
         ydl_opts = {'quiet': True, 'no_warnings': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with media_backend.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             return {
                 'title': info.get('title', 'Unknown'),
@@ -30,7 +29,7 @@ def get_video_info(url):
     except Exception as e:
         return None
 
-def download_video(url, output_path, quality='best', progress_callback=None):
+def fetch_media_content(url, output_path, quality='best', progress_callback=None):
     class ProgressHook:
         def __init__(self, callback):
             self.callback = callback
@@ -39,11 +38,11 @@ def download_video(url, output_path, quality='best', progress_callback=None):
             if self.callback and d['status'] == 'downloading':
                 if 'total_bytes' in d:
                     percent = (d['downloaded_bytes'] / d['total_bytes']) * 100
-                    self.callback(f"Downloading... {percent:.1f}%")
+                    self.callback(f"Processing... {percent:.1f}%")
                 elif '_percent_str' in d:
-                    self.callback(f"Downloading... {d['_percent_str']}")
+                    self.callback(f"Processing... {d['_percent_str']}")
             elif self.callback and d['status'] == 'finished':
-                self.callback("Download completed!")
+                self.callback("Fetch completed!")
 
     try:
         ydl_opts = {
@@ -52,7 +51,7 @@ def download_video(url, output_path, quality='best', progress_callback=None):
             'progress_hooks': [ProgressHook(progress_callback)] if progress_callback else []
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with media_backend.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         return True
     except Exception as e:
@@ -77,12 +76,12 @@ def format_views(views):
         return f"{views/1_000:.1f}K"
     return str(views)
 
-class MediaToolkitApp:
+class SafeMediaTool:
     def __init__(self, root):
         self.root = root
-        self.root.title("Media Toolkit App by AJ")
+        self.root.title("Safe Media Utility")
         self.root.geometry("900x700")
-        self.download_path = str(Path.home() / "Downloads")
+        self.save_path = str(Path.home() / "Downloads")
         self.video_info = None
         self.create_widgets()
 
@@ -100,13 +99,13 @@ class MediaToolkitApp:
         btn_frame1.pack(fill=tk.X, pady=5)
         self.info_btn = ttk.Button(btn_frame1, text="Get Info", command=self.start_info_fetch)
         self.info_btn.pack(side=tk.LEFT, padx=(0, 5))
-        self.download_btn = ttk.Button(btn_frame1, text="Download", command=self.start_download)
-        self.download_btn.pack(side=tk.LEFT, padx=5)
+        self.fetch_btn = ttk.Button(btn_frame1, text="Fetch Media", command=self.start_fetch)
+        self.fetch_btn.pack(side=tk.LEFT, padx=5)
 
         path_frame = ttk.Frame(frm)
         path_frame.pack(fill=tk.X, pady=5)
         ttk.Label(path_frame, text="Save To:").pack(side=tk.LEFT)
-        self.path_var = tk.StringVar(value=self.download_path)
+        self.path_var = tk.StringVar(value=self.save_path)
         self.path_entry = ttk.Entry(path_frame, textvariable=self.path_var, width=50)
         self.path_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
         self.browse_btn = ttk.Button(path_frame, text="Browse", command=self.browse_path)
@@ -146,9 +145,9 @@ class MediaToolkitApp:
         self.clear_log_btn.pack(side=tk.LEFT, padx=5)
 
     def browse_path(self):
-        folder = filedialog.askdirectory(initialdir=self.download_path)
+        folder = filedialog.askdirectory(initialdir=self.save_path)
         if folder:
-            self.download_path = folder
+            self.save_path = folder
             self.path_var.set(folder)
 
     def start_info_fetch(self):
@@ -187,39 +186,39 @@ class MediaToolkitApp:
             self.progress.stop()
             self.info_btn.config(state=tk.NORMAL)
 
-    def start_download(self):
+    def start_fetch(self):
         url = self.url_entry.get().strip()
         output_path = self.path_var.get().strip()
         if not url or not os.path.exists(output_path):
             messagebox.showerror("Error", "Enter a valid video URL and save path.")
             return
         quality = self.quality_var.get()
-        self.status_var.set("Starting download...")
-        self.download_btn.config(state=tk.DISABLED)
+        self.status_var.set("Starting fetch...")
+        self.fetch_btn.config(state=tk.DISABLED)
         self.progress.start()
-        threading.Thread(target=self.download_thread, args=(url, output_path, quality), daemon=True).start()
+        threading.Thread(target=self.fetch_thread, args=(url, output_path, quality), daemon=True).start()
 
-    def download_thread(self, url, output_path, quality):
+    def fetch_thread(self, url, output_path, quality):
         def progress_callback(message):
-            self.log_text.insert(tk.END, f"{message}\\n")
+            self.log_text.insert(tk.END, f"{message}\n")
             self.log_text.see(tk.END)
             self.status_var.set(message)
 
         try:
-            progress_callback(f"Downloading from: {url}")
-            success = download_video(url, output_path, quality, progress_callback)
+            progress_callback(f"Fetching from: {url}")
+            success = fetch_media_content(url, output_path, quality, progress_callback)
             if success:
-                messagebox.showinfo("Done", "Download completed.")
+                messagebox.showinfo("Done", "Fetch completed.")
             else:
-                messagebox.showerror("Error", "Download failed.")
+                messagebox.showerror("Error", "Fetch failed.")
         finally:
             self.progress.stop()
-            self.download_btn.config(state=tk.NORMAL)
+            self.fetch_btn.config(state=tk.NORMAL)
 
     def clear_log(self):
         self.log_text.delete("1.0", tk.END)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = MediaToolkitApp(root)
+    app = SafeMediaTool(root)
     root.mainloop()
