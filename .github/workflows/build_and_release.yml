@@ -21,29 +21,29 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yt-dlp pyinstaller upx matplotlib seaborn pillow
+          pip install yt-dlp pyinstaller matplotlib seaborn pillow
 
-      - name: Download UPX
+      - name: Download UPX binary
         run: |
           Invoke-WebRequest https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-win64.zip -OutFile upx.zip
           Expand-Archive upx.zip -DestinationPath upx
-          echo "UPX dir: $(Get-ChildItem upx)"
+          echo "UPX extracted."
 
-      - name: Build with PyInstaller & UPX
+      - name: Build executable with PyInstaller and UPX
         run: |
-          pyinstaller --noconfirm --onefile --windowed ^
-            --icon=app_icon.ico ^
-            --name MediaToolkitApp ^
-            MediaToolkitApp.py ^
+          pyinstaller --noconfirm --onefile --windowed `
+            --icon=app_icon.ico `
+            --name SafeMediaTool `
+            SafeMediaTool.py `
             --upx-dir upx/upx-4.2.1-win64
 
-      - name: Zip executable to avoid antivirus false positives
+      - name: Zip the executable
         run: |
-          Compress-Archive -Path dist/MediaToolkitApp.exe -DestinationPath MediaToolkitApp_v${{ github.ref_name }}.zip
+          Compress-Archive -Path dist/SafeMediaTool.exe -DestinationPath SafeMediaTool_v${{ github.ref_name }}.zip
 
-      - name: Upload Release
+      - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: MediaToolkitApp_v${{ github.ref_name }}.zip
+          files: SafeMediaTool_v${{ github.ref_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
